@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile and Run CRUD",
+      "type": "shell",
+      "command": "javac -cp \".;lib/mysql-connector-j-9.4.0.jar\" *.java && java -cp \".;lib/mysql-connector-j-9.4.0.jar\" CrudMahasiswa",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

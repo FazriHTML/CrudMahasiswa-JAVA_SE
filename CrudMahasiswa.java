@@ -1,11 +1,14 @@
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.sql.*;
 
 public class CrudMahasiswa {
     private static ArrayList<Mahasiswa> dataMahasiswa = new ArrayList<>();
     private static Scanner scanner = new Scanner(System.in);
     
     public static void main(String[] args) {
+        // Load data dari database saat program dimulai
+        loadDataFromDatabase();
         tampilkanHeader();
         
         while (true) {
@@ -40,10 +43,35 @@ public class CrudMahasiswa {
         }
     }
     
+    // Method untuk load data dari database
+    private static void loadDataFromDatabase() {
+        String sql = "SELECT * FROM mahasiswa";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            dataMahasiswa.clear(); // Clear data existing
+            
+            while (rs.next()) {
+                String nim = rs.getString("nim");
+                String nama = rs.getString("nama");
+                String jurusan = rs.getString("jurusan");
+                int semester = rs.getInt("semester");
+                
+                Mahasiswa mhs = new Mahasiswa(nim, nama, jurusan, semester);
+                dataMahasiswa.add(mhs);
+            }
+            
+        } catch (SQLException e) {
+            System.out.println("Error loading data from database: " + e.getMessage());
+        }
+    }
+    
     private static void tampilkanHeader() {
         System.out.println("================================================================");
         System.out.println("                SISTEM CRUD MAHASISWA");
-        System.out.println("                UNIVERSITAS MANDIRI JAYA");
+        System.out.println("                UNIVERSITAS MANDIRI");
         System.out.println("================================================================");
     }
     
@@ -98,9 +126,36 @@ public class CrudMahasiswa {
             return;
         }
         
-        Mahasiswa mhs = new Mahasiswa(nim, nama, jurusan, semester);
-        dataMahasiswa.add(mhs);
-        tampilkanPesan("Mahasiswa berhasil ditambahkan!", "SUKSES");
+        // Simpan ke database
+        if (simpanKeDatabase(nim, nama, jurusan, semester)) {
+            // Jika berhasil disimpan ke database, tambahkan ke ArrayList
+            Mahasiswa mhs = new Mahasiswa(nim, nama, jurusan, semester);
+            dataMahasiswa.add(mhs);
+            tampilkanPesan("Mahasiswa berhasil ditambahkan!", "SUKSES");
+        } else {
+            tampilkanPesan("Gagal menambahkan mahasiswa ke database!", "ERROR");
+        }
+    }
+    
+    // Method untuk menyimpan ke database
+    private static boolean simpanKeDatabase(String nim, String nama, String jurusan, int semester) {
+        String sql = "INSERT INTO mahasiswa (nim, nama, jurusan, semester) VALUES (?, ?, ?, ?)";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, nim);
+            pstmt.setString(2, nama);
+            pstmt.setString(3, jurusan);
+            pstmt.setInt(4, semester);
+            
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException e) {
+            System.out.println("Error saving to database: " + e.getMessage());
+            return false;
+        }
     }
     
     // READ - Lihat Mahasiswa
@@ -189,10 +244,37 @@ public class CrudMahasiswa {
                 }
             }
             
-            tampilkanPesan("Data mahasiswa berhasil diupdate!", "SUKSES");
+            // Update ke database
+            if (updateKeDatabase(mhs, nimLama)) {
+                tampilkanPesan("Data mahasiswa berhasil diupdate!", "SUKSES");
+            } else {
+                tampilkanPesan("Gagal mengupdate data di database!", "ERROR");
+            }
             
         } catch (NumberFormatException e) {
             tampilkanPesan("Input harus angka!", "ERROR");
+        }
+    }
+    
+    // Method untuk update data di database
+    private static boolean updateKeDatabase(Mahasiswa mhs, String nimLama) {
+        String sql = "UPDATE mahasiswa SET nim = ?, nama = ?, jurusan = ?, semester = ? WHERE nim = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, mhs.getNim());
+            pstmt.setString(2, mhs.getNama());
+            pstmt.setString(3, mhs.getJurusan());
+            pstmt.setInt(4, mhs.getSemester());
+            pstmt.setString(5, nimLama);
+            
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException e) {
+            System.out.println("Error updating database: " + e.getMessage());
+            return false;
         }
     }
     
@@ -221,14 +303,36 @@ public class CrudMahasiswa {
             String konfirmasi = scanner.nextLine().trim();
             
             if (konfirmasi.equalsIgnoreCase("y") || konfirmasi.equalsIgnoreCase("ya")) {
-                dataMahasiswa.remove(index);
-                tampilkanPesan("Mahasiswa " + mhs.getNama() + " berhasil dihapus!", "SUKSES");
+                // Hapus dari database
+                if (hapusDariDatabase(mhs.getNim())) {
+                    dataMahasiswa.remove(index);
+                    tampilkanPesan("Mahasiswa " + mhs.getNama() + " berhasil dihapus!", "SUKSES");
+                } else {
+                    tampilkanPesan("Gagal menghapus data dari database!", "ERROR");
+                }
             } else {
                 tampilkanPesan("Penghapusan dibatalkan.", "INFO");
             }
             
         } catch (NumberFormatException e) {
             tampilkanPesan("Input harus angka!", "ERROR");
+        }
+    }
+    
+    // Method untuk hapus data dari database
+    private static boolean hapusDariDatabase(String nim) {
+        String sql = "DELETE FROM mahasiswa WHERE nim = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, nim);
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException e) {
+            System.out.println("Error deleting from database: " + e.getMessage());
+            return false;
         }
     }
     
